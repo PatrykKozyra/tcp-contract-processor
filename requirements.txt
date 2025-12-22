@@ -1,0 +1,18 @@
+# Claude API for AI-powered contract analysis
+anthropic
+
+# PDF processing libraries
+pdfplumber
+pypdf2
+
+# Data handling and manipulation
+pandas
+
+# Excel file export
+openpyxl
+
+# Environment variable management
+python-dotenv
+
+# Web UI framework
+streamlit
