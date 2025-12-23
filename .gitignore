@@ -63,3 +63,4 @@ wheels/
 
 # Claude Code settings (optional - uncomment if you don't want to share)
 # .claude/
+test_data/
