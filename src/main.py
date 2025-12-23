@@ -98,49 +98,78 @@ def extract_contract_data(text: str, max_retries: int = 3) -> dict:
     input_tokens_estimate = len(text.split()) * 1.3  # Rough estimate
     print(f"  - Estimated input tokens: ~{int(input_tokens_estimate)}")
 
-    # Create prompt for contract data extraction
+    # Create prompt for contract data extraction - Updated to match Excel template (53 fields)
     prompt = f"""Please analyze this Time Charter Party (TCP) contract and extract the following information into a structured format.
 
 CONTRACT TEXT:
 {text}
 
-Please extract and return ONLY the following fields in valid JSON format. If a field is not found, use null:
+Please extract and return ONLY the following fields in valid JSON format. If a field is not found or not applicable, use null or "-" for text fields:
 
 {{
-    "contract_number": "Contract reference number",
-    "contract_date": "Date of contract",
-    "vessel_name": "Name of the vessel",
-    "imo_number": "IMO number",
-    "vessel_flag": "Flag/nationality",
-    "year_built": "Year vessel was built",
-    "vessel_type": "Type of vessel (bulk carrier, tanker, container, etc.)",
-    "deadweight": "Deadweight tonnage",
-    "gross_tonnage": "Gross tonnage",
-    "speed_about": "Speed in knots",
-    "consumption_per_day": "Fuel consumption per day",
-    "owner_name": "Owner's company name",
-    "owner_location": "Owner's location/country",
-    "charterer_name": "Charterer's company name",
-    "charterer_location": "Charterer's location/country",
-    "charter_period_months": "Charter period in months (numeric)",
-    "charter_period_description": "Full charter period description",
-    "daily_hire_rate_usd": "Daily hire rate in USD (numeric only)",
-    "delivery_date": "Delivery date or period",
-    "delivery_port": "Delivery port/place",
-    "redelivery_port": "Redelivery port/place or range",
-    "bunkers_delivery_ifo": "IFO/VLSFO quantity on delivery (metric tons)",
-    "bunkers_delivery_mgo": "MGO/MDO quantity on delivery (metric tons)",
-    "bunkers_redelivery_ifo": "IFO/VLSFO quantity on redelivery (metric tons)",
-    "bunkers_redelivery_mgo": "MGO/MDO quantity on redelivery (metric tons)",
-    "last_special_survey": "Date of last special survey",
-    "next_special_survey": "Date when next special survey is due",
-    "drydocking_policy": "Summary of drydocking provisions",
-    "off_hire_threshold_hours": "Minimum hours before off-hire applies (numeric)",
-    "trading_limits": "Geographic trading limits",
-    "law_and_arbitration": "Governing law and arbitration location",
-    "commission_rate": "Commission rate percentage",
-    "additional_notes": "Any other significant terms or special conditions"
+    "VESSEL NAME": "Full name of the vessel (e.g., M/T ADVANTAGE ATOM)",
+    "TRADE": "Type of trade/cargo (e.g., CRUDE, CLEAN, LNG, PRODUCTS)",
+    "TYPE AUTO.": "Vessel size/type category (e.g., Aframax, VLCC, Suezmax, Panamax)",
+    "TCP DATE": "Date of the charter party contract",
+    "CONTRACT TYPE": "Contract type classification (e.g., EXTERNAL, INTERNAL)",
+    "OWNERS.": "Owner's company name",
+    "CHARTERERS": "Charterer's company name",
+    "CHARTER LENGTH": "Charter period description (e.g., '3 YEARS +/- 30 DAYS')",
+    "OPTION PERIODS": "Description of option periods, if any (use 'N/A.' if none)",
+    "LENGTH OF NEXT OPTION": "Duration of next option period (use null if N/A)",
+    "NUMBER OF DAYS PRIOR REDELIVERY DATE TO DECLARE THE OPTION": "Days before redelivery to declare option (numeric)",
+    "OPTION DECLARATION DATE.": "Date by which option must be declared",
+    "STTC/ LTTC": "Charter duration type: STTC (Short Term) or LTTC (Long Term)",
+    "DELIVERY DATE": "Delivery date",
+    "REDELIVERY DATE": "Redelivery date",
+    "REDEL CHOP minus DAYS": "Days before redelivery date (charterer's option - numeric)",
+    "REDEL CHOP plus DAYS": "Days after redelivery date (charterer's option - numeric)",
+    "REDELIVERY LOCATION": "Detailed redelivery location description",
+    "FIRST REDEL NOTICE": "First redelivery notice in days (numeric)",
+    "EARLIEST REDELIVERY DATE.": "Earliest possible redelivery date",
+    "LATEST REDELIVERY DATE.": "Latest possible redelivery date",
+    "EARLIEST REDELIVERY NOTICE DATE.": "Earliest date for redelivery notice",
+    "LATEST REDELIVERY NOTICE DATE": "Latest date for redelivery notice",
+    "ALL REDEL NOTICES": "Complete redelivery notice schedule - extract exact text (e.g., 'Approx.: 20,15,10,7 days approximate and 5,3,2,1 definite days prior notice of redelivery')",
+    "LAST CARGOES ON REDELIVERY": "Allowed last cargoes before redelivery (e.g., 'CRUDE OIL OR DIRTY PETROLEUM PRODUCTS')",
+    "SLOPS ON REDELIVERY": "Slops requirements on redelivery (use '-' if not specified)",
+    "CLEANING REQUIREMENTS ON REDELIVERY": "Cleaning requirements on redelivery (use '-' if not specified)",
+    "CAN OFFHIRE BE ADDED?(CL 4(B))": "Can charterers add offhire time before redelivery? (Yes/No)",
+    "NUMBER OF DAYS PRIOR REDELIVERY DATE TO DECLARE THIS": "Days before redelivery to declare offhire addition (numeric)",
+    "OFFHIRE DECLARATION DATE(CL 4(B))": "Deadline date to declare offhire addition",
+    "OTHER REDELIVERY TERMS (E#G BALLAST BONUS)": "Other redelivery terms like ballast bonus (use '-' if none)",
+    "BUNKERS ON REDELIVERY(CL 15)": "Bunkers description on redelivery (e.g., 'FIFO BASIS / VESSEL TO BE DELIVERED AND REDELIVERED...')",
+    "CURRENT TC RATE(CL 8)": "Current time charter rate per day (e.g., '35,000' for USD 35,000)",
+    "FIXED/ MARKET RELATED": "Rate type: FIXED or MARKET RELATED",
+    "BENEFICIAL OWNER (FROM BANK DETAILS)": "Beneficial owner name from bank details",
+    "DRY-DOCK LOCATION": "Location of drydock (use '-' if not specified)",
+    "BROKER": "Broker name (use '-' if not specified)",
+    "BROKERS EMAIL": "Broker email address (use '-' if not specified)",
+    "Original Annual Anniversary Date": "Original annual anniversary date (use '-' if not specified)",
+    "Revised Annual Anniversary Date": "Revised annual anniversary date (use '-' if not specified)",
+    "IMO NUMBER": "IMO number (numeric)",
+    "BUILT": "Year vessel was built (numeric year)",
+    "FLAG": "Vessel flag/registry (e.g., 'MARSHALL ISLANDS')",
+    "VESSEL EMAIL": "Vessel email address",
+    "OWNER EMAIL ADDRESS": "Owner's email address",
+    "TECHNICAL MANAGER": "Technical manager company name",
+    "TECHNICAL MANAGER EMAIL ADDRESS": "Technical manager email address",
+    "P&I CLUB": "Protection and Indemnity Club name (e.g., 'WEST OF ENGLAND')",
+    "H&M VALUE USDM": "Hull & Machinery insurance value in USD millions (e.g., '$55M (FOR 2018)')",
+    "CLASSIFICATION SOCIETY": "Classification society name (e.g., 'DET NORSKE VERITAS', 'LLOYD'S REGISTER')",
+    "IMO TYPE": "IMO ship type classification (use '-' if not specified)",
+    "ICE CLASS": "Ice class rating (use '-' if not specified)",
+    "DWT": "Deadweight tonnage (numeric)"
 }}
+
+IMPORTANT NOTES:
+- Return ONLY valid JSON with these exact field names (case-sensitive, including punctuation)
+- Use null for dates/numbers that are not found
+- Use "-" for text fields that are not specified or not applicable
+- For dates, use YYYY-MM-DD format if possible
+- For ALL REDEL NOTICES, extract the complete notice schedule text exactly as written
+- Extract numeric values without currency symbols or units where specified
+- If contract uses different terminology, infer the equivalent field value
 
 Return ONLY valid JSON, no other text or explanation."""
 
@@ -160,7 +189,7 @@ Return ONLY valid JSON, no other text or explanation."""
             # Send request to Claude API
             message = client.messages.create(
                 model="claude-sonnet-4-20250514",
-                max_tokens=2000,  # Reduced from 4000 to save costs
+                max_tokens=3000,  # Increased for 53 fields (was 2000 for 33 fields)
                 messages=[
                     {"role": "user", "content": prompt}
                 ]

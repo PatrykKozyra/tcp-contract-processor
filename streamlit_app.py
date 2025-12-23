@@ -107,13 +107,13 @@ def filter_contracts_by_vessel(contracts: list, vessel_name: str) -> list:
 
     filtered = [
         contract for contract in contracts
-        if contract.get('vessel_name') and
-        vessel_name_upper in contract['vessel_name'].upper()
+        if contract.get('VESSEL NAME') and
+        vessel_name_upper in contract['VESSEL NAME'].upper()
     ]
 
-    # Sort by contract_date descending
+    # Sort by TCP DATE descending
     filtered.sort(
-        key=lambda x: x.get('contract_date') or '0000-00-00',
+        key=lambda x: x.get('TCP DATE') or '0000-00-00',
         reverse=True
     )
 
@@ -245,12 +245,11 @@ with tab2:
             if show_all:
                 display_df = df
             else:
-                # Show most important columns
+                # Show most important columns (updated for 53-field structure)
                 important_cols = [
-                    'vessel_name', 'contract_date', 'vessel_type',
-                    'charter_period_months', 'daily_hire_rate_usd',
-                    'owner_name', 'charterer_name',
-                    'delivery_port', 'redelivery_port',
+                    'VESSEL NAME', 'TCP DATE', 'TRADE', 'TYPE AUTO.',
+                    'CHARTERERS', 'CHARTER LENGTH', 'CURRENT TC RATE(CL 8)',
+                    'DELIVERY DATE', 'REDELIVERY DATE', 'REDELIVERY LOCATION',
                     '_source_file'
                 ]
                 display_cols = [col for col in important_cols if col in df.columns]
@@ -302,7 +301,7 @@ with tab2:
             if len(filtered_contracts) > 0:
                 # Select contract to view
                 vessel_options = [
-                    f"{c.get('vessel_name', 'N/A')} - {c.get('contract_date', 'N/A')}"
+                    f"{c.get('VESSEL NAME', 'N/A')} - {c.get('TCP DATE', 'N/A')}"
                     for c in filtered_contracts
                 ]
 
@@ -314,67 +313,95 @@ with tab2:
 
                 selected_contract = filtered_contracts[selected_idx]
 
-                # Display in expandable sections
+                # Display in expandable sections - Updated for 53-field structure
                 with st.expander("📋 Basic Information", expanded=True):
                     col1, col2 = st.columns(2)
 
                     with col1:
                         st.write("**Contract Details**")
-                        st.write(f"Contract Number: {selected_contract.get('contract_number', 'N/A')}")
-                        st.write(f"Contract Date: {selected_contract.get('contract_date', 'N/A')}")
+                        st.write(f"TCP Date: {selected_contract.get('TCP DATE', 'N/A')}")
+                        st.write(f"Contract Type: {selected_contract.get('CONTRACT TYPE', 'N/A')}")
+                        st.write(f"STTC/LTTC: {selected_contract.get('STTC/ LTTC', 'N/A')}")
                         st.write(f"Source File: {selected_contract.get('_source_file', 'N/A')}")
 
                     with col2:
                         st.write("**Vessel Information**")
-                        st.write(f"Vessel Name: {selected_contract.get('vessel_name', 'N/A')}")
-                        st.write(f"IMO Number: {selected_contract.get('imo_number', 'N/A')}")
-                        st.write(f"Vessel Type: {selected_contract.get('vessel_type', 'N/A')}")
-                        st.write(f"Year Built: {selected_contract.get('year_built', 'N/A')}")
+                        st.write(f"Vessel Name: {selected_contract.get('VESSEL NAME', 'N/A')}")
+                        st.write(f"IMO Number: {selected_contract.get('IMO NUMBER', 'N/A')}")
+                        st.write(f"Type: {selected_contract.get('TYPE AUTO.', 'N/A')}")
+                        st.write(f"Trade: {selected_contract.get('TRADE', 'N/A')}")
+                        st.write(f"Built: {selected_contract.get('BUILT', 'N/A')}")
+                        st.write(f"Flag: {selected_contract.get('FLAG', 'N/A')}")
+                        st.write(f"DWT: {selected_contract.get('DWT', 'N/A')}")
 
-                with st.expander("🤝 Parties"):
+                with st.expander("🤝 Parties & Contacts"):
                     col1, col2 = st.columns(2)
 
                     with col1:
-                        st.write("**Owner**")
-                        st.write(f"Name: {selected_contract.get('owner_name', 'N/A')}")
-                        st.write(f"Location: {selected_contract.get('owner_location', 'N/A')}")
+                        st.write("**Owners**")
+                        st.write(f"Name: {selected_contract.get('OWNERS.', 'N/A')}")
+                        st.write(f"Beneficial Owner: {selected_contract.get('BENEFICIAL OWNER (FROM BANK DETAILS)', 'N/A')}")
+                        st.write(f"Email: {selected_contract.get('OWNER EMAIL ADDRESS', 'N/A')}")
+                        st.write(f"Technical Manager: {selected_contract.get('TECHNICAL MANAGER', 'N/A')}")
+                        st.write(f"Tech Manager Email: {selected_contract.get('TECHNICAL MANAGER EMAIL ADDRESS', 'N/A')}")
 
                     with col2:
-                        st.write("**Charterer**")
-                        st.write(f"Name: {selected_contract.get('charterer_name', 'N/A')}")
-                        st.write(f"Location: {selected_contract.get('charterer_location', 'N/A')}")
+                        st.write("**Charterers**")
+                        st.write(f"Name: {selected_contract.get('CHARTERERS', 'N/A')}")
+                        st.write("")
+                        st.write("**Other Contacts**")
+                        st.write(f"Broker: {selected_contract.get('BROKER', 'N/A')}")
+                        st.write(f"Broker Email: {selected_contract.get('BROKERS EMAIL', 'N/A')}")
+                        st.write(f"Vessel Email: {selected_contract.get('VESSEL EMAIL', 'N/A')}")
 
                 with st.expander("💰 Commercial Terms"):
                     col1, col2 = st.columns(2)
 
                     with col1:
-                        st.write(f"**Charter Period:** {selected_contract.get('charter_period_months', 'N/A')} months")
-                        st.write(f"**Description:** {selected_contract.get('charter_period_description', 'N/A')}")
+                        st.write(f"**Charter Length:** {selected_contract.get('CHARTER LENGTH', 'N/A')}")
+                        st.write(f"**Current TC Rate:** ${selected_contract.get('CURRENT TC RATE(CL 8)', 'N/A')}")
+                        st.write(f"**Rate Type:** {selected_contract.get('FIXED/ MARKET RELATED', 'N/A')}")
 
                     with col2:
-                        hire_rate = selected_contract.get('daily_hire_rate_usd')
-                        if hire_rate:
-                            st.write(f"**Daily Hire Rate:** ${hire_rate:,.2f}")
-                        else:
-                            st.write("**Daily Hire Rate:** N/A")
-                        st.write(f"**Commission:** {selected_contract.get('commission_rate', 'N/A')}")
+                        st.write(f"**Option Periods:** {selected_contract.get('OPTION PERIODS', 'N/A')}")
+                        st.write(f"**Length of Next Option:** {selected_contract.get('LENGTH OF NEXT OPTION', 'N/A')}")
+                        st.write(f"**Option Declaration Date:** {selected_contract.get('OPTION DECLARATION DATE.', 'N/A')}")
 
                 with st.expander("🚢 Delivery & Redelivery"):
                     col1, col2 = st.columns(2)
 
                     with col1:
                         st.write("**Delivery**")
-                        st.write(f"Date: {selected_contract.get('delivery_date', 'N/A')}")
-                        st.write(f"Port: {selected_contract.get('delivery_port', 'N/A')}")
+                        st.write(f"Date: {selected_contract.get('DELIVERY DATE', 'N/A')}")
 
                     with col2:
                         st.write("**Redelivery**")
-                        st.write(f"Port: {selected_contract.get('redelivery_port', 'N/A')}")
+                        st.write(f"Date: {selected_contract.get('REDELIVERY DATE', 'N/A')}")
+                        st.write(f"Location: {selected_contract.get('REDELIVERY LOCATION', 'N/A')}")
+                        st.write(f"Earliest Date: {selected_contract.get('EARLIEST REDELIVERY DATE.', 'N/A')}")
+                        st.write(f"Latest Date: {selected_contract.get('LATEST REDELIVERY DATE.', 'N/A')}")
 
-                with st.expander("📝 Additional Information"):
-                    st.write(f"**Trading Limits:** {selected_contract.get('trading_limits', 'N/A')}")
-                    st.write(f"**Law & Arbitration:** {selected_contract.get('law_and_arbitration', 'N/A')}")
-                    st.write(f"**Additional Notes:** {selected_contract.get('additional_notes', 'N/A')}")
+                with st.expander("📅 Redelivery Details"):
+                    st.write(f"**Notice Schedule:** {selected_contract.get('ALL REDEL NOTICES', 'N/A')}")
+                    st.write(f"**First Notice (days):** {selected_contract.get('FIRST REDEL NOTICE', 'N/A')}")
+                    st.write(f"**Chop -/+ Days:** {selected_contract.get('REDEL CHOP minus DAYS', 'N/A')} / {selected_contract.get('REDEL CHOP plus DAYS', 'N/A')}")
+                    st.write(f"**Last Cargoes:** {selected_contract.get('LAST CARGOES ON REDELIVERY', 'N/A')}")
+                    st.write(f"**Bunkers on Redelivery:** {selected_contract.get('BUNKERS ON REDELIVERY(CL 15)', 'N/A')}")
+                    st.write(f"**Can Offhire be Added:** {selected_contract.get('CAN OFFHIRE BE ADDED?(CL 4(B))', 'N/A')}")
+                    st.write(f"**Other Terms:** {selected_contract.get('OTHER REDELIVERY TERMS (E#G BALLAST BONUS)', 'N/A')}")
+
+                with st.expander("⚓ Technical & Classification"):
+                    col1, col2 = st.columns(2)
+
+                    with col1:
+                        st.write(f"**Classification Society:** {selected_contract.get('CLASSIFICATION SOCIETY', 'N/A')}")
+                        st.write(f"**P&I Club:** {selected_contract.get('P&I CLUB', 'N/A')}")
+                        st.write(f"**H&M Value:** {selected_contract.get('H&M VALUE USDM', 'N/A')}")
+
+                    with col2:
+                        st.write(f"**IMO Type:** {selected_contract.get('IMO TYPE', 'N/A')}")
+                        st.write(f"**Ice Class:** {selected_contract.get('ICE CLASS', 'N/A')}")
+                        st.write(f"**Drydock Location:** {selected_contract.get('DRY-DOCK LOCATION', 'N/A')}")
 
         else:
             st.warning(f"No contracts found matching '{search_query}'")

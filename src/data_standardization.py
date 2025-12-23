@@ -197,72 +197,138 @@ class TCPDataStandardizer:
         return text if text else None
 
     @staticmethod
+    def standardize_email(value: Any) -> Optional[str]:
+        """
+        Clean and validate email address format.
+
+        Args:
+            value: Email address string
+
+        Returns:
+            Cleaned email or None if invalid
+        """
+        if not value or value == "null" or value == "-" or pd.isna(value):
+            return None
+
+        email = str(value).strip().lower()
+
+        # Basic email validation
+        if re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', email):
+            return email
+
+        return None
+
+    @staticmethod
+    def standardize_boolean(value: Any) -> Optional[str]:
+        """
+        Standardize boolean/Yes-No fields.
+
+        Args:
+            value: Yes/No/True/False value
+
+        Returns:
+            "Yes" or "No" or None
+        """
+        if not value or value == "null" or value == "-" or pd.isna(value):
+            return None
+
+        val_str = str(value).strip().upper()
+
+        if val_str in ['YES', 'Y', 'TRUE', '1']:
+            return "Yes"
+        elif val_str in ['NO', 'N', 'FALSE', '0', 'N/A', 'N/A.']:
+            return "No"
+
+        return None
+
+    @staticmethod
     def standardize_contract_data(raw_data: dict) -> dict:
         """
-        Apply standardization to all fields in contract data.
+        Apply standardization to all fields in contract data (53 fields).
 
         Args:
             raw_data: Raw contract data dictionary from Claude
 
         Returns:
-            Standardized contract data dictionary
+            Standardized contract data dictionary with exact Excel column names
         """
         standardized = {}
 
-        # Date fields
+        # Date fields - convert to ISO format
         date_fields = [
-            'contract_date', 'delivery_date',
-            'last_special_survey', 'next_special_survey'
+            'TCP DATE', 'DELIVERY DATE', 'REDELIVERY DATE',
+            'OPTION DECLARATION DATE.', 'EARLIEST REDELIVERY DATE.',
+            'LATEST REDELIVERY DATE.', 'EARLIEST REDELIVERY NOTICE DATE.',
+            'LATEST REDELIVERY NOTICE DATE', 'OFFHIRE DECLARATION DATE(CL 4(B))',
+            'Original Annual Anniversary Date', 'Revised Annual Anniversary Date'
         ]
         for field in date_fields:
             if field in raw_data:
                 standardized[field] = TCPDataStandardizer.standardize_date(raw_data[field])
 
-        # Vessel name
-        if 'vessel_name' in raw_data:
-            standardized['vessel_name'] = TCPDataStandardizer.standardize_vessel_name(raw_data['vessel_name'])
+        # Vessel name (keep original format - don't auto-add M/V)
+        if 'VESSEL NAME' in raw_data:
+            val = raw_data['VESSEL NAME']
+            if val and val != "null" and val != "-":
+                standardized['VESSEL NAME'] = str(val).strip().upper()
+            else:
+                standardized['VESSEL NAME'] = None
 
         # Numeric fields (integers)
-        numeric_fields = [
-            'charter_period_months', 'off_hire_threshold_hours'
+        numeric_int_fields = [
+            'NUMBER OF DAYS PRIOR REDELIVERY DATE TO DECLARE THE OPTION',
+            'REDEL CHOP minus DAYS', 'REDEL CHOP plus DAYS',
+            'FIRST REDEL NOTICE', 'NUMBER OF DAYS PRIOR REDELIVERY DATE TO DECLARE THIS',
+            'IMO NUMBER', 'BUILT', 'DWT'
         ]
-        for field in numeric_fields:
+        for field in numeric_int_fields:
             if field in raw_data:
                 numeric = TCPDataStandardizer.extract_numeric_value(raw_data[field])
                 standardized[field] = int(numeric) if numeric is not None else None
 
-        # Currency/numeric fields (with decimals)
-        currency_fields = [
-            'daily_hire_rate_usd'
+        # Currency/rate fields (extract number from "35,000" format)
+        if 'CURRENT TC RATE(CL 8)' in raw_data:
+            rate_val = raw_data['CURRENT TC RATE(CL 8)']
+            if rate_val and rate_val != "null" and rate_val != "-":
+                # Keep as string to preserve format like "35,000"
+                standardized['CURRENT TC RATE(CL 8)'] = str(rate_val).strip()
+            else:
+                standardized['CURRENT TC RATE(CL 8)'] = None
+
+        # Email fields
+        email_fields = [
+            'BROKERS EMAIL', 'VESSEL EMAIL', 'OWNER EMAIL ADDRESS',
+            'TECHNICAL MANAGER EMAIL ADDRESS'
         ]
-        for field in currency_fields:
+        for field in email_fields:
             if field in raw_data:
-                standardized[field] = TCPDataStandardizer.standardize_currency(raw_data[field])
+                standardized[field] = TCPDataStandardizer.standardize_email(raw_data[field])
 
-        # Year field (extract and convert to int)
-        if 'year_built' in raw_data:
-            year = TCPDataStandardizer.extract_numeric_value(raw_data['year_built'])
-            standardized['year_built'] = int(year) if year is not None else None
+        # Boolean fields (Yes/No)
+        if 'CAN OFFHIRE BE ADDED?(CL 4(B))' in raw_data:
+            standardized['CAN OFFHIRE BE ADDED?(CL 4(B))'] = TCPDataStandardizer.standardize_boolean(
+                raw_data['CAN OFFHIRE BE ADDED?(CL 4(B))']
+            )
 
-        # IMO number (remove any non-numeric characters)
-        if 'imo_number' in raw_data:
-            imo = TCPDataStandardizer.extract_numeric_value(raw_data['imo_number'])
-            standardized['imo_number'] = str(int(imo)) if imo is not None else None
-
-        # Text fields (just clean them)
-        text_fields = [
-            'contract_number', 'vessel_flag', 'vessel_type',
-            'deadweight', 'gross_tonnage', 'speed_about', 'consumption_per_day',
-            'owner_name', 'owner_location', 'charterer_name', 'charterer_location',
-            'charter_period_description', 'delivery_port', 'redelivery_port',
-            'bunkers_delivery_ifo', 'bunkers_delivery_mgo',
-            'bunkers_redelivery_ifo', 'bunkers_redelivery_mgo',
-            'drydocking_policy', 'trading_limits', 'law_and_arbitration',
-            'commission_rate', 'additional_notes'
+        # Text fields (uppercase, cleaned)
+        uppercase_text_fields = [
+            'TRADE', 'TYPE AUTO.', 'CONTRACT TYPE', 'OWNERS.', 'CHARTERERS',
+            'CHARTER LENGTH', 'OPTION PERIODS', 'STTC/ LTTC', 'REDELIVERY LOCATION',
+            'ALL REDEL NOTICES', 'LAST CARGOES ON REDELIVERY', 'SLOPS ON REDELIVERY',
+            'CLEANING REQUIREMENTS ON REDELIVERY', 'OTHER REDELIVERY TERMS (E#G BALLAST BONUS)',
+            'BUNKERS ON REDELIVERY(CL 15)', 'FIXED/ MARKET RELATED',
+            'BENEFICIAL OWNER (FROM BANK DETAILS)', 'DRY-DOCK LOCATION',
+            'BROKER', 'FLAG', 'TECHNICAL MANAGER', 'P&I CLUB',
+            'H&M VALUE USDM', 'CLASSIFICATION SOCIETY', 'IMO TYPE', 'ICE CLASS',
+            'LENGTH OF NEXT OPTION'
         ]
-        for field in text_fields:
+        for field in uppercase_text_fields:
             if field in raw_data:
-                standardized[field] = TCPDataStandardizer.standardize_text(raw_data[field])
+                val = raw_data[field]
+                if val and val != "null" and val != "-" and not pd.isna(val):
+                    standardized[field] = str(val).strip().upper()
+                else:
+                    standardized[field] = val if val == "-" else None
 
         return standardized
 
@@ -304,18 +370,25 @@ class TCPDataStandardizer:
         if not contracts:
             return pd.DataFrame()
 
-        # Define column order for better readability
+        # Define column order to match Excel template exactly (53 columns)
         column_order = [
-            'contract_number', 'contract_date', 'vessel_name', 'imo_number',
-            'vessel_flag', 'year_built', 'vessel_type', 'deadweight', 'gross_tonnage',
-            'owner_name', 'owner_location', 'charterer_name', 'charterer_location',
-            'charter_period_months', 'daily_hire_rate_usd', 'delivery_date',
-            'delivery_port', 'redelivery_port', 'speed_about', 'consumption_per_day',
-            'bunkers_delivery_ifo', 'bunkers_delivery_mgo',
-            'bunkers_redelivery_ifo', 'bunkers_redelivery_mgo',
-            'last_special_survey', 'next_special_survey', 'drydocking_policy',
-            'off_hire_threshold_hours', 'trading_limits', 'law_and_arbitration',
-            'commission_rate', 'charter_period_description', 'additional_notes'
+            'VESSEL NAME', 'TRADE', 'TYPE AUTO.', 'TCP DATE', 'CONTRACT TYPE',
+            'OWNERS.', 'CHARTERERS', 'CHARTER LENGTH', 'OPTION PERIODS',
+            'LENGTH OF NEXT OPTION', 'NUMBER OF DAYS PRIOR REDELIVERY DATE TO DECLARE THE OPTION',
+            'OPTION DECLARATION DATE.', 'STTC/ LTTC', 'DELIVERY DATE', 'REDELIVERY DATE',
+            'REDEL CHOP minus DAYS', 'REDEL CHOP plus DAYS', 'REDELIVERY LOCATION',
+            'FIRST REDEL NOTICE', 'EARLIEST REDELIVERY DATE.', 'LATEST REDELIVERY DATE.',
+            'EARLIEST REDELIVERY NOTICE DATE.', 'LATEST REDELIVERY NOTICE DATE',
+            'ALL REDEL NOTICES', 'LAST CARGOES ON REDELIVERY', 'SLOPS ON REDELIVERY',
+            'CLEANING REQUIREMENTS ON REDELIVERY', 'CAN OFFHIRE BE ADDED?(CL 4(B))',
+            'NUMBER OF DAYS PRIOR REDELIVERY DATE TO DECLARE THIS',
+            'OFFHIRE DECLARATION DATE(CL 4(B))', 'OTHER REDELIVERY TERMS (E#G BALLAST BONUS)',
+            'BUNKERS ON REDELIVERY(CL 15)', 'CURRENT TC RATE(CL 8)', 'FIXED/ MARKET RELATED',
+            'BENEFICIAL OWNER (FROM BANK DETAILS)', 'DRY-DOCK LOCATION', 'BROKER',
+            'BROKERS EMAIL', 'Original Annual Anniversary Date', 'Revised Annual Anniversary Date',
+            'IMO NUMBER', 'BUILT', 'FLAG', 'VESSEL EMAIL', 'OWNER EMAIL ADDRESS',
+            'TECHNICAL MANAGER', 'TECHNICAL MANAGER EMAIL ADDRESS', 'P&I CLUB',
+            'H&M VALUE USDM', 'CLASSIFICATION SOCIETY', 'IMO TYPE', 'ICE CLASS', 'DWT'
         ]
 
         df = pd.DataFrame(contracts)
